@@ -159,17 +159,22 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CameraThings.cpp" />
+    <ClCompile Include="FileManager.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Kube.cpp" />
+    <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="FragShader.frag" />
     <Content Include="NewVertShader.vert" />
-    <Content Include="VertexShader.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="FileManager.h" />
     <ClInclude Include="Kube.h" />
+    <ClInclude Include="Shader.h" />
+    <ClInclude Include="Vertex.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

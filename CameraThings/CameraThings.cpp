@@ -1,25 +1,24 @@
-#include <fstream>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
 #include <iostream>
-#include <sstream>
 #include <vector>
 #include <windows.h>
 
 #include "Camera.h"
+#include "FileManager.h"
 #include "Kube.h"
+#include "Shader.h"
 
-struct Vertex {
-    float x, y, z, r, g, b;
-};
 
 #pragma region Public Variables
 
 Camera MainCamera;
+FileManager fileManager;
+Shader shader;
 Kube k(1.0f);
 
 bool firstMouse = true; // Used in mouse_callback
@@ -53,8 +52,8 @@ std::vector<Vertex> readPointsFromFile(const std::string& filename);
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-std::string vertexShaderSourceString = readFile("NewVertShader.vert");
-std::string fragmentShaderSourceString = readFile("FragmentShader.frag");
+std::string vertexShaderSourceString = fileManager.readFile("NewVertShader.vert");
+std::string fragmentShaderSourceString = fileManager.readFile("FragmentShader.frag");
 
 const char *vertexShaderSource = vertexShaderSourceString.c_str();
 const char *fragmentShaderSource = fragmentShaderSourceString.c_str();
@@ -64,14 +63,22 @@ const char *fragmentShaderSource = fragmentShaderSourceString.c_str();
 
 int main()
 {
-    std::vector<Vertex> points = readPointsFromFile("spiralpunkter2.txt");
-    std::vector<float> floats = convertPointsToFloats(points, 1/9.9f);
+    std::vector<Vertex> points = fileManager.readPointsFromFile("spiralpunkter2.txt");
+    std::vector<float> floats = fileManager.convertPointsToFloats(points, 1/9.9f);
     
     GLFWwindow* window;
     unsigned shaderProgram, VBO, VAO, EBO;
     int vertexColorLocation, value1;
     
     setup(window, shaderProgram, VBO, VAO, EBO, vertexColorLocation, value1, floats);
+
+    //TODO: USE THIS WHEN FIXED SHADER EXTRACT TO NEW CLASS: 
+    // Shader shaderTest;
+    // shaderTest.CreateFragmentShader(vertexShaderSourceString);
+    // shaderTest.CreateVertexShader(fragmentShaderSourceString);
+    // shaderTest.LinkProgram();
+    // shaderProgram = shaderTest.GetProgram();
+
     
     render(window, shaderProgram, VAO, vertexColorLocation, points);
 
@@ -122,47 +129,13 @@ void setup(GLFWwindow*& window, unsigned& shaderProgram, unsigned& VBO, unsigned
         value1 = -1;
         return;
     }
+    
+    shader.CreateVertexShader(vertexShaderSource);
+    shader.CreateFragmentShader(fragmentShaderSource);
+    shader.LinkProgram();
+    shaderProgram = shader.GetProgram();
 
-
-    // build and compile our shader program
-    // ------------------------------------
-    // vertex shader
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-    // check for shader compile errors
-    int success;
-    char infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-    // fragment shader
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-    // check for shader compile errors
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    // check for linking errors
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
+    
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
     float vertices[] = {
@@ -311,66 +284,6 @@ void processInput(GLFWwindow *window)
         MainCamera.cameraPos -= cameraSpeed * MainCamera.cameraUp; // Move camera down
 
 }
-
-/// \brief reads the content of a file and returns a stringstream.
-/// \param filename the exact filename
-/// \return the content of the file as stringstream
-std::string readFile(const std::string& filename) {
-    std::ifstream file(filename);
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
-
-/// \brief Reads points from a file and returns a vector of vertices
-/// \param filename name of the file
-/// \return 
-std::vector<Vertex> readPointsFromFile(const std::string& filename) {
-    std::vector<Vertex> points;
-    std::ifstream file(filename);
-    std::string line;
-
-    if (!file.is_open()) {
-        std::cout << "Unable to open file: " << filename << std::endl;
-        return points;
-    }
-
-    // Skip the first line
-    std::getline(file, line);
-
-    while (std::getline(file, line)) {
-        Vertex point;
-        // Assuming the Point struct has members x, y, z, r, g, b
-        int ret = sscanf_s(line.c_str(), "X: %f, Y: %f, Z: %f, r: %f, g: %f, b: %f", &point.x, &point.y, &point.z, &point.r, &point.g, &point.b);
-        if (ret == 6) { // if all six values are successfully read
-            points.push_back(point);
-        } else {
-            std::cout << "Failed to read line: " << line << std::endl;
-        }
-    }
-
-    file.close();
-    return points;
-}
-
-/// \brief Converts a vector of points to a vector of floats
-/// \param points list of verftices
-/// \param scale 
-/// \return vector of floats
-std::vector<float> convertPointsToFloats(const std::vector<Vertex>& points, float scale) {
-    std::vector<float> floats;
-    for (const auto& point : points) {
-        floats.push_back(point.x*scale);
-        floats.push_back(point.y*scale);
-        floats.push_back(point.z*scale);
-        floats.push_back(point.r);
-        floats.push_back(point.g);
-        floats.push_back(point.b);
-    }
-    return floats;
-}
-
-
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
