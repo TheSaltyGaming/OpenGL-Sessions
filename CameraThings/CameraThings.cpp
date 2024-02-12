@@ -72,13 +72,6 @@ int main()
     
     setup(window, shaderProgram, VBO, VAO, EBO, vertexColorLocation, value1, floats);
 
-    //TODO: USE THIS WHEN FIXED SHADER EXTRACT TO NEW CLASS: 
-    // Shader shaderTest;
-    // shaderTest.CreateFragmentShader(vertexShaderSourceString);
-    // shaderTest.CreateVertexShader(fragmentShaderSourceString);
-    // shaderTest.LinkProgram();
-    // shaderProgram = shaderTest.GetProgram();
-
     
     render(window, shaderProgram, VAO, vertexColorLocation, points);
 
