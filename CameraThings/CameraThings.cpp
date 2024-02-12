@@ -13,114 +13,43 @@
 #include "Camera.h"
 #include "Kube.h"
 
-// struct Camera
-// {
-//     int mPmatrixUniform;
-//     int mVmatrixUniform;
-//
-//     glm::mat4 mPmatrix();
-//     glm::mat4 mVmatrix();
-// };
-
-Camera MainCamera;
-bool firstMouse = true;
-float lastX = 400, lastY = 300;
-
-struct Point {
+struct Vertex {
     float x, y, z, r, g, b;
 };
 
+#pragma region Public Variables
+
+Camera MainCamera;
 Kube k(1.0f);
+
+bool firstMouse = true; // Used in mouse_callback
+
+
+float lastX = 400, lastY = 300; //Used in mouse_callback
 
 float deltaTime = 0.0f;	// Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
 
-void mouse_callback(GLFWwindow* window, double xpos, double ypos)
-{
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
-  
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; 
-    lastX = xpos;
-    lastY = ypos;
+#pragma endregion
 
-    float sensitivity = 0.1f;
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
+#pragma region Function Declarations
 
-    MainCamera.yaw   += xoffset;
-    MainCamera.pitch += yoffset;
+void setup(GLFWwindow*& window, unsigned& shaderProgram, unsigned& VBO, unsigned& VAO, unsigned& EBO,
+               int& vertexColorLocation, int& value1, std::vector<float> floats);
+void render(GLFWwindow* window, unsigned shaderProgram, unsigned VAO, int vertexColorLocation, std::vector<Vertex> points);
 
-    if(MainCamera.pitch > 89.0f)
-        MainCamera.pitch = 89.0f;
-    if(MainCamera.pitch < -89.0f)
-        MainCamera.pitch = -89.0f;
-
-    glm::vec3 direction;
-    direction.x = cos(glm::radians(MainCamera.yaw)) * cos(glm::radians(MainCamera.pitch));
-    direction.y = sin(glm::radians(MainCamera.pitch));
-    direction.z = sin(glm::radians(MainCamera.yaw)) * cos(glm::radians(MainCamera.pitch));
-    MainCamera.cameraFront = glm::normalize(direction);
-}  
-
-std::string readFile(const std::string& filename) {
-    std::ifstream file(filename);
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
-
-
-std::vector<float> convertPointsToFloats(const std::vector<Point>& points, float scale) {
-    std::vector<float> floats;
-    for (const auto& point : points) {
-        floats.push_back(point.x*scale);
-        floats.push_back(point.y*scale);
-        floats.push_back(point.z*scale);
-        floats.push_back(point.r);
-        floats.push_back(point.g);
-        floats.push_back(point.b);
-    }
-    return floats;
-}
-
-std::vector<Point> readPointsFromFile(const std::string& filename) {
-    std::vector<Point> points;
-    std::ifstream file(filename);
-    std::string line;
-
-    if (!file.is_open()) {
-        std::cout << "Unable to open file: " << filename << std::endl;
-        return points;
-    }
-
-    // Skip the first line
-    std::getline(file, line);
-
-    while (std::getline(file, line)) {
-        Point point;
-        // Assuming the Point struct has members x, y, z, r, g, b
-        int ret = sscanf_s(line.c_str(), "X: %f, Y: %f, Z: %f, r: %f, g: %f, b: %f", &point.x, &point.y, &point.z, &point.r, &point.g, &point.b);
-        if (ret == 6) { // if all six values are successfully read
-            points.push_back(point);
-        } else {
-            std::cout << "Failed to read line: " << line << std::endl;
-        }
-    }
-
-    file.close();
-    return points;
-}
-
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
 
-// settings
+std::string readFile(const std::string& filename);
+std::vector<float> convertPointsToFloats(const std::vector<Vertex>& points, float scale);
+std::vector<Vertex> readPointsFromFile(const std::string& filename);
+
+#pragma endregion
+
+#pragma region Settings
+
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
@@ -129,6 +58,35 @@ std::string fragmentShaderSourceString = readFile("FragmentShader.frag");
 
 const char *vertexShaderSource = vertexShaderSourceString.c_str();
 const char *fragmentShaderSource = fragmentShaderSourceString.c_str();
+
+#pragma endregion
+
+
+int main()
+{
+    std::vector<Vertex> points = readPointsFromFile("spiralpunkter2.txt");
+    std::vector<float> floats = convertPointsToFloats(points, 1/9.9f);
+    
+    GLFWwindow* window;
+    unsigned shaderProgram, VBO, VAO, EBO;
+    int vertexColorLocation, value1;
+    
+    setup(window, shaderProgram, VBO, VAO, EBO, vertexColorLocation, value1, floats);
+    
+    render(window, shaderProgram, VAO, vertexColorLocation, points);
+
+    // optional: de-allocate all resources once they've outlived their purpose:
+    // ------------------------------------------------------------------------
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+    glDeleteProgram(shaderProgram);
+
+    // glfw: terminate, clearing all previously allocated GLFW resources.
+    // ------------------------------------------------------------------
+    glfwTerminate();
+    return 0;
+}
 
 void setup(GLFWwindow*& window, unsigned& shaderProgram, unsigned& VBO, unsigned& VAO, unsigned& EBO,
                int& vertexColorLocation, int& value1, std::vector<float> floats)
@@ -252,7 +210,7 @@ void setup(GLFWwindow*& window, unsigned& shaderProgram, unsigned& VBO, unsigned
     return;
 }
 
-void render(GLFWwindow* window, unsigned shaderProgram, unsigned VAO, int vertexColorLocation, std::vector<Point> points, float test)
+void render(GLFWwindow* window, unsigned shaderProgram, unsigned VAO, int vertexColorLocation, std::vector<Vertex> points)
 {
     glm::mat4 trans = glm::mat4(1.0f);
 
@@ -331,39 +289,6 @@ void render(GLFWwindow* window, unsigned shaderProgram, unsigned VAO, int vertex
     }
 }
 
-int main()
-{
-    
-    std::vector<Point> points = readPointsFromFile("spiralpunkter2.txt");
-    std::vector<float> floats = convertPointsToFloats(points, 1/9.9f);
-    
-    glm::vec4 vec(1.0f, 0.0f, 0.0f, 1.0f);
-    
-
-    
-    GLFWwindow* window;
-    unsigned shaderProgram, VBO, VAO, EBO;
-    int vertexColorLocation, value1;
-    float test = 1.0f;
-    
-    
-    setup(window, shaderProgram, VBO, VAO, EBO, vertexColorLocation, value1, floats);
-    
-    render(window, shaderProgram, VAO, vertexColorLocation, points, test);
-
-    // optional: de-allocate all resources once they've outlived their purpose:
-    // ------------------------------------------------------------------------
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
-    glDeleteProgram(shaderProgram);
-
-    // glfw: terminate, clearing all previously allocated GLFW resources.
-    // ------------------------------------------------------------------
-    glfwTerminate();
-    return 0;
-}
-
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
@@ -387,6 +312,66 @@ void processInput(GLFWwindow *window)
 
 }
 
+/// \brief reads the content of a file and returns a stringstream.
+/// \param filename the exact filename
+/// \return the content of the file as stringstream
+std::string readFile(const std::string& filename) {
+    std::ifstream file(filename);
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+/// \brief Reads points from a file and returns a vector of vertices
+/// \param filename name of the file
+/// \return 
+std::vector<Vertex> readPointsFromFile(const std::string& filename) {
+    std::vector<Vertex> points;
+    std::ifstream file(filename);
+    std::string line;
+
+    if (!file.is_open()) {
+        std::cout << "Unable to open file: " << filename << std::endl;
+        return points;
+    }
+
+    // Skip the first line
+    std::getline(file, line);
+
+    while (std::getline(file, line)) {
+        Vertex point;
+        // Assuming the Point struct has members x, y, z, r, g, b
+        int ret = sscanf_s(line.c_str(), "X: %f, Y: %f, Z: %f, r: %f, g: %f, b: %f", &point.x, &point.y, &point.z, &point.r, &point.g, &point.b);
+        if (ret == 6) { // if all six values are successfully read
+            points.push_back(point);
+        } else {
+            std::cout << "Failed to read line: " << line << std::endl;
+        }
+    }
+
+    file.close();
+    return points;
+}
+
+/// \brief Converts a vector of points to a vector of floats
+/// \param points list of verftices
+/// \param scale 
+/// \return vector of floats
+std::vector<float> convertPointsToFloats(const std::vector<Vertex>& points, float scale) {
+    std::vector<float> floats;
+    for (const auto& point : points) {
+        floats.push_back(point.x*scale);
+        floats.push_back(point.y*scale);
+        floats.push_back(point.z*scale);
+        floats.push_back(point.r);
+        floats.push_back(point.g);
+        floats.push_back(point.b);
+    }
+    return floats;
+}
+
+
+
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -395,3 +380,35 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+ {
+     if (firstMouse)
+     {
+         lastX = xpos;
+         lastY = ypos;
+         firstMouse = false;
+     }
+   
+     float xoffset = xpos - lastX;
+     float yoffset = lastY - ypos; 
+     lastX = xpos;
+     lastY = ypos;
+ 
+     float sensitivity = 0.1f;
+     xoffset *= sensitivity;
+     yoffset *= sensitivity;
+ 
+     MainCamera.yaw   += xoffset;
+     MainCamera.pitch += yoffset;
+ 
+     if(MainCamera.pitch > 89.0f)
+         MainCamera.pitch = 89.0f;
+     if(MainCamera.pitch < -89.0f)
+         MainCamera.pitch = -89.0f;
+ 
+     glm::vec3 direction;
+     direction.x = cos(glm::radians(MainCamera.yaw)) * cos(glm::radians(MainCamera.pitch));
+     direction.y = sin(glm::radians(MainCamera.pitch));
+     direction.z = sin(glm::radians(MainCamera.yaw)) * cos(glm::radians(MainCamera.pitch));
+     MainCamera.cameraFront = glm::normalize(direction);
+ }  
